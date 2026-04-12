@@ -43,7 +43,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### 2. Clone and install
 
 ```bash
-git clone <repo-url> qasync
+git clone https://github.com/aboueleyes-i/qasync.git
 cd qasync
 
 # Create venv and install
