@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qasync"
+version = "0.1.0"
+description = "QA test data sync tool - fan-out uploads to multiple storage backends"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+hdfs = ["pyarrow>=14.0"]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+    "ty>=0.0.1a1",
+]
+
+[project.scripts]
+qasync = "qasync.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ty.environment]
+python-version = "3.10"
