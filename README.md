@@ -46,9 +46,13 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 git clone https://github.com/aboueleyes-i/qasync.git
 cd qasync
 
-# Create venv and install
+# Create venv and install (Python 3.10-3.13)
 uv venv
 uv pip install -e .
+
+# If you have Python 3.14+, pin to 3.13:
+# uv venv --python 3.13
+# uv pip install -e .
 ```
 
 ### 3. Verify
