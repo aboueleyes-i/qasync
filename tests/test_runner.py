@@ -10,7 +10,7 @@ class FakeSyncer(BaseSyncer):
         self.should_fail = should_fail
         self.uploaded = False
 
-    def upload(self, local_path, dry_run=False, flat=False):
+    def upload(self, local_path, dry_run=False, flat=False, remote_path=None):
         self.uploaded = True
         if self.should_fail:
             return SyncResult(target_name=self.name, success=False, error="mock error")

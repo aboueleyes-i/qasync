@@ -42,6 +42,36 @@ def _load_config_or_exit(config_path: str) -> QaSyncConfig:
         raise click.ClickException(str(e))
 
 
+def _parse_remote_paths(remote_path_str, target_names):
+    """Parse --remote-path value into {target_name: path} dict.
+
+    Formats:
+      "/qa/run1"              -> applies to all targets
+      "s3=/qa/run1,gcs=/stg"  -> per-target paths
+    """
+    if not remote_path_str:
+        return {}
+
+    # Check if it's per-target (contains =) or a single path for all
+    if "=" in remote_path_str:
+        result = {}
+        for part in remote_path_str.split(","):
+            part = part.strip()
+            if "=" not in part:
+                raise click.ClickException(
+                    f"Invalid --remote-path format: '{part}'. Use target=/path"
+                )
+            name, path = part.split("=", 1)
+            name = name.strip()
+            if name not in target_names:
+                raise click.ClickException(f"Unknown target in --remote-path: {name}")
+            result[name] = path.strip()
+        return result
+    else:
+        # Single path applies to all targets
+        return {name: remote_path_str for name in target_names}
+
+
 def _resolve_or_pick(cfg, targets_str, group):
     """Resolve targets from flags, or show interactive picker if neither given."""
     target_names = targets_str.split(",") if targets_str else None
@@ -73,19 +103,34 @@ def main():
     "--flat", is_flag=True,
     help="Upload contents directly into base_path (no subdirectory created)",
 )
+@click.option(
+    "--remote-path", "-r", default=None,
+    help="Override remote path. Single path or per-target: s3=/qa/run1,gcs=/stg",
+)
 @click.option("--config", "-c", default=DEFAULT_CONFIG, help="Config file path")
-def upload(source, targets, group, dry_run, parallel, flat, config):
+def upload(source, targets, group, dry_run, parallel, flat, remote_path, config):
     """Upload a directory to storage targets.
 
     \b
     By default, creates a subdirectory named after SOURCE on the remote:
       qasync upload ./test-data --targets s3
-      -> uploads to s3:bucket/base_path/test-data/
+      -> s3:bucket/base_path/test-data/
 
     \b
     With --flat, uploads contents directly into base_path:
       qasync upload ./test-data --targets s3 --flat
-      -> uploads to s3:bucket/base_path/
+      -> s3:bucket/base_path/
+
+    \b
+    Override remote path for all targets:
+      qasync upload ./test-data --targets s3,gcs --remote-path /qa/2026-04-14
+      -> s3:bucket/qa/2026-04-14/test-data/
+
+    \b
+    Override remote path per target:
+      qasync upload ./test-data --targets s3,gcs -r s3=/qa/run1,gcs=/staging/run1
+      -> s3:bucket/qa/run1/test-data/
+      -> gcs:bucket/staging/run1/test-data/
     """
     source_path = Path(source)
     if not source_path.exists():
@@ -101,10 +146,16 @@ def upload(source, targets, group, dry_run, parallel, flat, config):
     syncers = _build_syncers(resolved)
     parallel = cfg.defaults.get("parallel", parallel)
 
+    # Parse --remote-path into a dict of {target_name: path}
+    remote_paths = _parse_remote_paths(remote_path, [t.name for t in resolved])
+
     if dry_run:
         console.print("[yellow]DRY RUN -- no files will be transferred[/yellow]\n")
 
-    results = run_sync(syncers, source_path, max_parallel=parallel, dry_run=dry_run, flat=flat)
+    results = run_sync(
+        syncers, source_path, max_parallel=parallel,
+        dry_run=dry_run, flat=flat, remote_paths=remote_paths,
+    )
     print_sync_results(results)
 
     # Retry loop for failed targets
@@ -114,7 +165,10 @@ def upload(source, targets, group, dry_run, parallel, flat, config):
             break
         failed_names = {r.target_name for r in failed}
         retry_syncers = [s for s in syncers if s.name in failed_names]
-        results = run_sync(retry_syncers, source_path, max_parallel=parallel, flat=flat)
+        results = run_sync(
+            retry_syncers, source_path, max_parallel=parallel,
+            flat=flat, remote_paths=remote_paths,
+        )
         print_sync_results(results)
         failed = [r for r in results if not r.success]
 

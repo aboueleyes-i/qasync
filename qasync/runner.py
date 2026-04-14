@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Optional
 
 from rich.progress import (
     BarColumn,
@@ -30,8 +31,10 @@ def run_sync(
     max_parallel: int = 3,
     dry_run: bool = False,
     flat: bool = False,
+    remote_paths: Optional[dict[str, str]] = None,
 ) -> list[SyncResult]:
     results: list[SyncResult] = []
+    remote_paths = remote_paths or {}
 
     with _make_progress() as progress:
         # Create a progress task per syncer
@@ -52,7 +55,10 @@ def run_sync(
 
         with ThreadPoolExecutor(max_workers=max_parallel) as pool:
             futures = {
-                pool.submit(syncer.upload, local_path, dry_run, flat): syncer
+                pool.submit(
+                    syncer.upload, local_path, dry_run, flat,
+                    remote_paths.get(syncer.name),
+                ): syncer
                 for syncer in syncers
             }
             for future in as_completed(futures):

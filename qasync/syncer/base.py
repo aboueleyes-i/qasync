@@ -19,11 +19,18 @@ class BaseSyncer(ABC):
         self.config = config
 
     @abstractmethod
-    def upload(self, local_path: Path, dry_run: bool = False, flat: bool = False) -> SyncResult:
+    def upload(
+        self,
+        local_path: Path,
+        dry_run: bool = False,
+        flat: bool = False,
+        remote_path: Optional[str] = None,
+    ) -> SyncResult:
         """Upload local_path contents to the remote target.
 
-        If flat=False (default), creates a subdirectory named after local_path.
-        If flat=True, uploads contents directly into base_path.
+        flat=False (default): creates a subdirectory named after local_path.
+        flat=True: uploads contents directly into the destination.
+        remote_path: if set, overrides the target's base_path entirely.
         """
 
     @abstractmethod

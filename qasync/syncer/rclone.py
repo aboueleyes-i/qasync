@@ -52,7 +52,13 @@ class RcloneSyncer(BaseSyncer):
     def _count_local_files(self, local_path: Path) -> int:
         return sum(1 for f in local_path.rglob("*") if f.is_file())
 
-    def upload(self, local_path: Path, dry_run: bool = False, flat: bool = False) -> SyncResult:
+    def upload(
+        self,
+        local_path: Path,
+        dry_run: bool = False,
+        flat: bool = False,
+        remote_path: Optional[str] = None,
+    ) -> SyncResult:
         if not local_path.exists():
             return SyncResult(
                 target_name=self.name,
@@ -62,11 +68,16 @@ class RcloneSyncer(BaseSyncer):
 
         file_count = self._count_local_files(local_path)
 
-        # flat=False: create remote subdir named after source (e.g. base_path/test-data/)
-        # flat=True: upload contents directly into base_path
-        subdir = "" if flat else (local_path.name if local_path.is_dir() else "")
-
-        cmd = self._build_upload_cmd(local_path, dry_run, subdir)
+        if remote_path is not None:
+            # Override: use remote_path instead of base_path from config
+            saved = self.config.get("base_path", "")
+            self.config["base_path"] = remote_path
+            subdir = "" if flat else (local_path.name if local_path.is_dir() else "")
+            cmd = self._build_upload_cmd(local_path, dry_run, subdir)
+            self.config["base_path"] = saved
+        else:
+            subdir = "" if flat else (local_path.name if local_path.is_dir() else "")
+            cmd = self._build_upload_cmd(local_path, dry_run, subdir)
         start = time.monotonic()
 
         if self.progress_callback:

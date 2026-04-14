@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from typing import Optional
 
 from qasync.syncer.base import BaseSyncer, SyncResult
 
@@ -19,7 +20,13 @@ class HdfsSyncer(BaseSyncer):
     def _list_local_files(self, local_path: Path) -> list[Path]:
         return [f for f in local_path.rglob("*") if f.is_file()]
 
-    def upload(self, local_path: Path, dry_run: bool = False, flat: bool = False) -> SyncResult:
+    def upload(
+        self,
+        local_path: Path,
+        dry_run: bool = False,
+        flat: bool = False,
+        remote_path: Optional[str] = None,
+    ) -> SyncResult:
         if not local_path.exists():
             return SyncResult(
                 target_name=self.name,
@@ -37,7 +44,7 @@ class HdfsSyncer(BaseSyncer):
                 file_count=file_count,
             )
 
-        base_path = self.config.get("base_path", "").rstrip("/")
+        base_path = (remote_path or self.config.get("base_path", "")).rstrip("/")
         if not flat:
             subdir = local_path.name if local_path.is_dir() else ""
             if subdir:
